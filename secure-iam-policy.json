@@ -1,0 +1,103 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowListBucketWithPrefix",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "arn:aws:s3:::app-secure-bucket",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "data/*",
+            "uploads/*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowGetObjectSpecificBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": "arn:aws:s3:::app-secure-bucket/data/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    },
+    {
+      "Sid": "AllowPutObjectForUploads",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Resource": "arn:aws:s3:::app-secure-bucket/uploads/*",
+      "Condition": {
+        "StringEquals": {
+          "s3:x-amz-server-side-encryption": "AES256",
+          "aws:SourceVpc": "vpc-12345678"
+        }
+      }
+    },
+    {
+      "Sid": "DenyPublicAccess",
+      "Effect": "Deny",
+      "Action": [
+        "s3:PutAccountPublicAccessBlock",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketAcl",
+        "s3:PutObjectAcl",
+        "s3:DeleteBucketPolicy"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyUnencryptedUploads",
+      "Effect": "Deny",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::app-secure-bucket/*",
+      "Condition": {
+        "StringNotEquals": {
+          "s3:x-amz-server-side-encryption": "AES256"
+        }
+      }
+    },
+    {
+      "Sid": "DenyIncorrectKMSKey",
+      "Effect": "Deny",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::app-secure-bucket/*",
+      "Condition": {
+        "StringNotEquals": {
+          "s3:x-amz-server-side-encryption-aws-kms-key-id": "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+        }
+      }
+    },
+    {
+      "Sid": "DenyDeleteOperations",
+      "Effect": "Deny",
+      "Action": [
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion",
+        "s3:DeleteBucket"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowRequiredS3Metadata",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObjectTagging",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": "arn:aws:s3:::app-secure-bucket/*"
+    }
+  ]
+}

@@ -1,0 +1,548 @@
+# Advanced IAM Policies: Multiple Scenarios
+
+## Overview
+
+This document provides production-ready IAM policies for various S3 security scenarios, demonstrating the Principle of Least Privilege in different contexts.
+
+---
+
+## Scenario 1: Read-Only Application Access
+
+**Use Case**: Web application needs to read static files from S3 (images, CSS, JS)
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowGetPublicAssets",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::company-assets-bucket/public/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceVpc": "vpc-12345678"
+        }
+      }
+    },
+    {
+      "Sid": "AllowListBucketPublicPath",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::company-assets-bucket",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": "public/*"
+        }
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Scenario 2: Data Upload with Encryption Enforcement
+
+**Use Case**: Backend application uploads processed data with mandatory encryption
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowPutObjectWithEncryption",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:PutObjectAcl"
+      ],
+      "Resource": "arn:aws:s3:::secure-data-bucket/uploads/*/",
+      "Condition": {
+        "StringEquals": {
+          "s3:x-amz-server-side-encryption": "aws:kms",
+          "s3:x-amz-server-side-encryption-aws-kms-key-id": "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+        }
+      }
+    },
+    {
+      "Sid": "DenyUnencryptedUploads",
+      "Effect": "Deny",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::secure-data-bucket/uploads/*",
+      "Condition": {
+        "StringNotEquals": {
+          "s3:x-amz-server-side-encryption": "aws:kms"
+        }
+      }
+    },
+    {
+      "Sid": "DenyIncorrectKMSKey",
+      "Effect": "Deny",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::secure-data-bucket/uploads/*",
+      "Condition": {
+        "StringNotLike": {
+          "s3:x-amz-server-side-encryption-aws-kms-key-id": "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+        }
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Scenario 3: Cross-Account S3 Access (STS AssumeRole)
+
+**Use Case**: Trusted partner needs temporary access to specific S3 data
+
+**Step 1: Trust Relationship (on target account's role)**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::987654321098:role/partner-application-role"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "sts:ExternalId": "unique-external-id-12345"
+        },
+        "IpAddress": {
+          "aws:SourceIp": "203.0.113.0/24"
+        }
+      }
+    }
+  ]
+}
+```
+
+**Step 2: S3 Permissions (for partner's role)**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowCrossAccountRead",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::partner-data-bucket",
+        "arn:aws:s3:::partner-data-bucket/partner-access/*"
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## Scenario 4: Time-Limited Access (for contractors/temporary staff)
+
+**Use Case**: Contractor needs 30-day access to project files
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowTemporaryAccess",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::project-bucket",
+        "arn:aws:s3:::project-bucket/project-xyz/*"
+      ],
+      "Condition": {
+        "DateGreaterThan": {
+          "aws:CurrentTime": "2026-04-13T00:00:00Z"
+        },
+        "DateLessThan": {
+          "aws:CurrentTime": "2026-05-13T00:00:00Z"
+        }
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Scenario 5: Backup and Disaster Recovery Role
+
+**Use Case**: Backup service can read all production data but cannot delete
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowReadAllBuckets",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListAllMyBuckets",
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowBackupWrite",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Resource": "arn:aws:s3:::backup-vault/*",
+      "Condition": {
+        "StringEquals": {
+          "s3:x-amz-server-side-encryption": "AES256"
+        }
+      }
+    },
+    {
+      "Sid": "DenyDelete",
+      "Effect": "Deny",
+      "Action": [
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion",
+        "s3:DeleteBucket",
+        "s3:DeleteBucketPolicy"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+---
+
+## Scenario 6: Developer Sandbox (DEV only)
+
+**Use Case**: DevOps engineer manages development buckets but NOT production
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowFullS3AccessDEVOnly",
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::dev-*",
+        "arn:aws:s3:::dev-*/*"
+      ]
+    },
+    {
+      "Sid": "DenyProductionAccess",
+      "Effect": "Deny",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::prod-*",
+        "arn:aws:s3:::prod-*/*",
+        "arn:aws:s3:::production-*",
+        "arn:aws:s3:::production-*/*"
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## Scenario 7: Compliance Officer Audit Access
+
+**Use Case**: Compliance officer can read encryption status and logs, but not modify
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowAuditRead",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketLocation",
+        "s3:GetBucketVersioning",
+        "s3:GetBucketEncryption",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketAcl",
+        "s3:GetBucketLogging",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:ListBucket"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowLogFileAccess",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::audit-logs-bucket/*"
+    },
+    {
+      "Sid": "DenyAllModifications",
+      "Effect": "Deny",
+      "Action": [
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketEncryption",
+        "s3:PutBucketLogging"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+---
+
+## Scenario 8: Lambda Function (Serverless App)
+
+**Use Case**: Lambda function processes images from S3 event notifications
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowLambdaS3ReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::image-input-bucket/*"
+    },
+    {
+      "Sid": "AllowLambdaS3Write",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Resource": "arn:aws:s3:::image-output-bucket/processed/*",
+      "Condition": {
+        "StringEquals": {
+          "s3:x-amz-server-side-encryption": "AES256"
+        }
+      }
+    },
+    {
+      "Sid": "AllowCloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:*:*"
+    }
+  ]
+}
+```
+
+---
+
+## Scenario 9: Data Scientist Notebook Access
+
+**Use Case**: Data scientist can read training datasets, write analysis output, no deletion
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowReadDatasets",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::ml-datasets-bucket",
+        "arn:aws:s3:::ml-datasets-bucket/training-data/*"
+      ]
+    },
+    {
+      "Sid": "AllowWriteOutput",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Resource": "arn:aws:s3:::ml-output-bucket/notebooks/*/",
+      "Condition": {
+        "StringEquals": {
+          "aws:username": "${aws:username}"
+        }
+      }
+    },
+    {
+      "Sid": "DenyDelete",
+      "Effect": "Deny",
+      "Action": [
+        "s3:DeleteObject",
+        "s3:DeleteBucket"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+---
+
+## Scenario 10: CI/CD Pipeline Deployment
+
+**Use Case**: GitHub Actions or GitLab CI deploys artifacts to S3
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowUploadArtifacts",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::deployment-artifacts-bucket/builds/*",
+      "Condition": {
+        "StringEquals": {
+          "s3:x-amz-server-side-encryption": "AES256"
+        }
+      }
+    },
+    {
+      "Sid": "AllowListBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::deployment-artifacts-bucket"
+    },
+    {
+      "Sid": "DenyOldArtifactsDeletion",
+      "Effect": "Deny",
+      "Action": [
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::deployment-artifacts-bucket/builds/*"
+    }
+  ]
+}
+```
+
+---
+
+## Policy Testing Checklist
+
+When implementing any of the above policies, verify:
+
+- [ ] Policy allows required actions only
+- [ ] Policy uses specific resource ARNs (not wildcards)
+- [ ] Encryption is enforced (if handling sensitive data)
+- [ ] Delete operations are explicitly denied where unnecessary
+- [ ] Conditions restrict by VPC, IP, or time if appropriate
+- [ ] Policy has been tested in non-production first
+- [ ] Least privilege principle applied (explicit deny takes precedence)
+- [ ] CloudTrail logs all S3 API calls
+- [ ] Access reviewed quarterly
+- [ ] Unused permissions removed immediately
+
+---
+
+## AWS CLI Implementation Examples
+
+### Apply a policy to a role:
+```bash
+aws iam put-role-policy \
+  --role-name my-app-role \
+  --policy-name s3-access-policy \
+  --policy-document file://scenario-1.json
+```
+
+### Validate policy syntax:
+```bash
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::123456789012:role/my-app-role \
+  --action-names s3:GetObject s3:PutObject \
+  --resource-arns arn:aws:s3:::my-bucket/*
+```
+
+### List policies for a role:
+```bash
+aws iam list-role-policies \
+  --role-name my-app-role
+```
+
+### Review permission:
+```bash
+aws iam get-role-policy \
+  --role-name my-app-role \
+  --policy-name s3-access-policy
+```
+
+---
+
+## Testing Your Policies
+
+### Manual Testing
+
+```bash
+# Test GetObject access
+aws s3api get-object \
+  --bucket project-bucket \
+  --key path/to/file.txt \
+  --profile test-role \
+  output.txt
+
+# Test ListBucket access
+aws s3 ls s3://project-bucket/ --profile test-role
+
+# Test denied action (should fail)
+aws s3 rm s3://project-bucket/protected-file --profile test-role
+# Should output: permission denied
+```
+
+### Using AWS CLI Policy Simulator (Recommended)
+
+```bash
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::123456789012:role/test-role \
+  --action-names s3:GetObject s3:PutObject s3:DeleteObject \
+  --resource-arns arn:aws:s3:::project-bucket/subfolder/*
+```
+
+---
+
+## Key Takeaways
+
+1. **Always use specific resource ARNs** - Never use wildcards unless absolutely necessary
+2. **Deny before Allow** - Use Deny statements to prevent dangerous operations
+3. **Encrypt always** - Add encryption conditions to all PutObject permissions
+4. **Audit everything** - Enable CloudTrail and S3 access logging
+5. **Review quarterly** - Remove unused permissions regularly
+6. **Test in DEV first** - Never apply untested policies to production
+
+---
+
+**Document Version**: 1.0  
+**Last Updated**: April 2026
