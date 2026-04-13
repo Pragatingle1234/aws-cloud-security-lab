@@ -1,0 +1,66 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly scan
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Check for Secrets
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: ${{ github.event.repository.default_branch }}
+        head: HEAD
+        extra_args: --debug --only-verified
+    
+    - name: Run Trivy Vulnerability Scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+    
+    - name: Check JSON Files for Violations
+      run: |
+        echo "✓ Checking JSON policy files..."
+        for file in *.json; do
+          echo "Checking $file..."
+          python -m json.tool "$file" > /dev/null || exit 1
+        done
+        echo "✓ All JSON files are valid"
+    
+    - name: Check for Hardcoded Credentials
+      run: |
+        echo "✓ Scanning for hardcoded credentials..."
+        ! grep -r "AKIA" . --include="*.py" --include="*.sh" --include="*.json"
+        ! grep -r "aws_secret_access_key" . --include="*.tf" --include="*.json"
+        echo "✓ No hardcoded credentials found"
+    
+    - name: Report
+      if: success()
+      run: |
+        echo "✅ Security scan passed!"
+        echo "Checks performed:"
+        echo "  ✓ Secret detection"
+        echo "  ✓ Vulnerability scanning"
+        echo "  ✓ JSON validation"
+        echo "  ✓ Credential detection"

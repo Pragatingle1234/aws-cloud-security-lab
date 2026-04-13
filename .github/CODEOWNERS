@@ -1,0 +1,28 @@
+# CODEOWNERS - GitHub Code Ownership and Review Requirements
+
+# Default owner for everything in the repository
+* @Pragatingle1234
+
+# Documentation
+*.md @Pragatingle1234
+
+# Security policies
+*.json @Pragatingle1234
+
+# Automation scripts
+*.sh @Pragatingle1234
+*.ps1 @Pragatingle1234
+
+# Python Lambda function
+*.py @Pragatingle1234
+
+# Infrastructure as Code
+*.tf @Pragatingle1234
+
+# GitHub configuration
+.github/ @Pragatingle1234
+
+# AWS configuration
+.gitignore @Pragatingle1234
+LICENSE @Pragatingle1234
+CONTRIBUTING.md @Pragatingle1234

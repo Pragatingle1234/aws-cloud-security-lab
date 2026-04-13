@@ -1,0 +1,54 @@
+name: Validate Project Files
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Validate Markdown Files
+      run: |
+        echo "✓ Checking markdown files exist..."
+        test -f README.md
+        test -f SECURITY_RISKS_AND_IMPACT.md
+        test -f IMPLEMENTATION_GUIDE.md
+        test -f ASSESSMENT_AND_QUIZ.md
+        test -f VIDEO_SCRIPTS.md
+        test -f INDEX.md
+        echo "✓ All documentation files present"
+    
+    - name: Validate JSON Files
+      run: |
+        echo "✓ Validating JSON syntax..."
+        python -m json.tool secure-iam-policy.json > /dev/null
+        python -m json.tool iam-policy-scenarios.json > /dev/null
+        echo "✓ All JSON files valid"
+    
+    - name: Validate Shell Scripts
+      run: |
+        echo "✓ Checking shell script syntax..."
+        bash -n s3-security-hardening.sh
+        echo "✓ Shell scripts valid"
+    
+    - name: Check File Existence
+      run: |
+        echo "Files validation:"
+        ls -lh *.md *.json *.sh
+        echo "✓ All key files present"
+    
+    - name: Report
+      if: success()
+      run: |
+        echo "✅ All validations passed!"
+        echo "📊 Project contains:"
+        echo "  - Documentation: 7 files"
+        echo "  - Policies: 2 JSON files"
+        echo "  - Automation: 3 scripts"
+        echo "  - Infrastructure: 1 Terraform file"

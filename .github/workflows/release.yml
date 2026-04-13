@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Create Release Notes
+      id: release_notes
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        
+        # Extract version from tag
+        MAJOR_VERSION=$(echo $VERSION | cut -d. -f1)
+        
+        cat > release_notes.md << EOF
+        # AWS Cloud Security Lab $VERSION
+        
+        ## 🎉 Release: $VERSION
+        
+        ### 📦 What's Included
+        
+        **Documentation** (7 files, 8,500+ lines)
+        - Complete S3 security curriculum
+        - Real-world breach case studies
+        - Step-by-step implementation guide
+        - 50-question assessment with answers
+        - Video training scripts
+        
+        **Tools & Automation** (3 scripts)
+        - Bash: \`s3-security-hardening.sh\`
+        - PowerShell: \`s3-security-hardening.ps1\`
+        - Python Lambda: \`s3_security_lambda.py\`
+        
+        **Infrastructure & Policies** (3 files)
+        - Terraform: Complete S3 security template
+        - Production IAM policy
+        - 10 real-world scenario templates
+        
+        ### 🚀 Quick Start
+        
+        1. \`git clone https://github.com/Pragatingle1234/aws-cloud-security-lab.git\`
+        2. Review \`README.md\` for course overview
+        3. Follow \`IMPLEMENTATION_GUIDE.md\` for step-by-step hardening
+        4. Run \`./s3-security-hardening.sh\` to automate (Unix/Linux/Mac)
+        5. Take \`ASSESSMENT_AND_QUIZ.md\` to validate knowledge
+        
+        ### 📊 Stats
+        - **Total Lines**: 15,000+
+        - **Files**: 18
+        - **Case Studies**: 5 major breaches analyzed
+        - **Scenario Templates**: 10 IAM policy variations
+        - **Assessment Questions**: 50+
+        
+        ### 🔒 Coverage
+        - S3 bucket security
+        - IAM policies (Principle of Least Privilege)
+        - Encryption at rest & in transit
+        - Access logging & auditing
+        - Compliance (GDPR, HIPAA, PCI-DSS)
+        - Real attack scenarios
+        
+        ### 💡 Use Cases
+        - 🎓 Security training programs
+        - 📕 Learning AWS cloud security
+        - 🏢 Enterprise security hardening
+        - 🔍 Incident response preparation
+        - 📋 Compliance demonstrations
+        
+        ### 🙏 Download & Learn
+        
+        Get started now: [Clone Repository](https://github.com/Pragatingle1234/aws-cloud-security-lab)
+        
+        ---
+        
+        **Made with ❤️ for the cloud security community**
+        EOF
+        
+        cat release_notes.md
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+        files: |
+          README.md
+          SECURITY_RISKS_AND_IMPACT.md
+          IMPLEMENTATION_GUIDE.md
+          ASSESSMENT_AND_QUIZ.md
+          VIDEO_SCRIPTS.md
+          secure-iam-policy.json
+          iam-policy-scenarios.json
+          s3-security-hardening.sh
+          s3-security-hardening.ps1
+          s3_security_lambda.py
+          main.tf
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Report
+      run: |
+        echo "✅ Release created successfully!"
+        echo "Version: ${{ steps.release_notes.outputs.version }}"

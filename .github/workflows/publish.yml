@@ -1,0 +1,125 @@
+name: Publish Documentation
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Pages
+      uses: actions/configure-pages@v3
+    
+    - name: Create Documentation Site
+      run: |
+        mkdir -p _site
+        
+        # Copy all markdown files
+        cp *.md _site/
+        
+        # Copy policies for reference
+        mkdir -p _site/policies
+        cp *.json _site/policies/
+        
+        # Create index.html for landing page
+        cat > _site/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>AWS Cloud Security Lab</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+                h1 { color: #232f3e; border-bottom: 3px solid #ff9900; padding-bottom: 10px; }
+                a { color: #ff9900; text-decoration: none; font-weight: bold; }
+                a:hover { text-decoration: underline; }
+                .section { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                .badge { display: inline-block; background: #ff9900; color: white; padding: 5px 10px; border-radius: 4px; margin-right: 10px; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <h1>🔐 AWS Cloud Security Lab</h1>
+            <p><span class="badge">AWS</span> <span class="badge">S3</span> <span class="badge">Security</span> <span class="badge">IAM</span></p>
+            
+            <div class="section">
+                <h2>📚 Documentation</h2>
+                <ul>
+                    <li><a href="README.md">README - Complete Course</a></li>
+                    <li><a href="SECURITY_RISKS_AND_IMPACT.md">Security Risks & Financial Impact</a></li>
+                    <li><a href="IMPLEMENTATION_GUIDE.md">Step-by-Step Implementation</a></li>
+                    <li><a href="ASSESSMENT_AND_QUIZ.md">50-Question Assessment</a></li>
+                    <li><a href="VIDEO_SCRIPTS.md">Video Training Scripts</a></li>
+                    <li><a href="INDEX.md">Navigation & Learning Paths</a></li>
+                </ul>
+            </div>
+            
+            <div class="section">
+                <h2>🔧 Automation & Tools</h2>
+                <ul>
+                    <li><strong>Bash Script:</strong> s3-security-hardening.sh</li>
+                    <li><strong>PowerShell Script:</strong> s3-security-hardening.ps1</li>
+                    <li><strong>Python Lambda:</strong> s3_security_lambda.py</li>
+                    <li><strong>Terraform:</strong> main.tf</li>
+                </ul>
+            </div>
+            
+            <div class="section">
+                <h2>📋 Security Policies</h2>
+                <ul>
+                    <li><a href="policies/">View All Policies</a></li>
+                    <li><strong>Production Policy:</strong> secure-iam-policy.json</li>
+                    <li><strong>10 Scenario Templates:</strong> iam-policy-scenarios.json</li>
+                </ul>
+            </div>
+            
+            <div class="section">
+                <h2>🚀 Quick Start</h2>
+                <ol>
+                    <li>Start with <a href="README.md">README.md</a></li>
+                    <li>Study <a href="SECURITY_RISKS_AND_IMPACT.md">Security Risks</a></li>
+                    <li>Follow <a href="IMPLEMENTATION_GUIDE.md">Implementation Guide</a></li>
+                    <li>Test with <a href="ASSESSMENT_AND_QUIZ.md">Assessment</a></li>
+                </ol>
+            </div>
+            
+            <div class="section">
+                <h2>📊 Project Stats</h2>
+                <ul>
+                    <li>📝 7 Documentation Files</li>
+                    <li>📋 2 Security Policy Files</li>
+                    <li>🔧 3 Automation Scripts</li>
+                    <li>📦 1 Terraform Template</li>
+                    <li>📚 15,000+ Lines of Content</li>
+                </ul>
+            </div>
+            
+            <hr>
+            <p align="center">⭐ <a href="https://github.com/Pragatingle1234/aws-cloud-security-lab">View on GitHub</a></p>
+        </body>
+        </html>
+        EOF
+        
+        echo "✓ Documentation site created"
+    
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v1
+      with:
+        path: '_site'
+    
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v1
